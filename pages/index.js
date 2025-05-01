@@ -1,22 +1,46 @@
 import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const stations = ["Løb", "Ro", "Styrke"];
 
-export default function Home() {
+export default function BaneStationApp() {
   const [selections, setSelections] = useState({});
-  const [current, setCurrent] = useState({ bane: null, station: null });
-  const [name, setName] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [inputName, setInputName] = useState("");
+  const [isGuest, setIsGuest] = useState(false);
+  const [viewMode, setViewMode] = useState("input"); // "input" or "overview"
 
   const handleSelect = (bane, station) => {
-    setCurrent({ bane, station });
+    const key = `${bane}-${station}`;
+    if (selections[key]) return;
+    setEditing({ bane, station });
+    setInputName("");
+    setIsGuest(false);
   };
 
-  const handleSubmit = () => {
-    if (!current.bane || !current.station || !name) return;
-    const key = `${current.bane}-${current.station}`;
-    setSelections({ ...selections, [key]: name });
-    setCurrent({ bane: null, station: null });
-    setName("");
+  const handleInputChange = (e) => {
+    setInputName(e.target.value);
+  };
+
+  const handleInputSubmit = (e) => {
+    e.preventDefault();
+    if (!editing || !inputName) return;
+    const key = `${editing.bane}-${editing.station}`;
+    const nameWithGuest = isGuest ? `⭐ ${inputName}` : inputName;
+    setSelections({ ...selections, [key]: nameWithGuest });
+    setEditing(null);
+    setInputName("");
+    setIsGuest(false);
+  };
+
+  const handleRemove = (bane, station) => {
+    const key = `${bane}-${station}`;
+    const updated = { ...selections };
+    delete updated[key];
+    setSelections(updated);
   };
 
   const handleReset = () => {
@@ -29,74 +53,89 @@ export default function Home() {
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Vælg bane og station</h1>
+    <div className="p-4 grid gap-4">
+      <h1 className="text-2xl font-bold mb-4">{viewMode === "overview" ? "Fuld oversigt" : "Vælg bane og station"}</h1>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-        <span>Klik for at reservere en station</span>
-        <button onClick={handleReset}>Nulstil alle valg</button>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
-        {[...Array(16)].map((_, i) => {
-          const bane = i + 1;
-          return (
-            <div key={bane} style={{ border: '1px solid #ccc', padding: 10 }}>
-              <h2>Bane {bane}</h2>
-              {stations.map((station) => {
-                const key = `${bane}-${station}`;
-                const taken = isTaken(bane, station);
-                return (
-                  <button
-                    key={station}
-                    onClick={() => handleSelect(bane, station)}
-                    disabled={!!taken}
-                    style={{ display: 'block', marginBottom: 5, width: '100%' }}
-                  >
-                    {station} {taken ? `- ${taken}` : ""}
-                  </button>
-                );
-              })}
-            </div>
-          );
-        })}
-      </div>
-
-      {current.bane && current.station && (
-        <div style={{ marginTop: 30 }}>
-          <h3>
-            Du har valgt Bane {current.bane} - {current.station}
-          </h3>
-          <input
-            placeholder="Indtast dit navn"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{ display: 'block', marginBottom: 10 }}
-          />
-          <button onClick={handleSubmit}>Bekræft valg</button>
+      <div className="flex justify-between items-center">
+        <span className="text-sm text-gray-600">
+          {viewMode === "overview"
+            ? "Viser alle valg – kun til instruktører"
+            : "Klik på en station og indtast dit navn"}
+        </span>
+        <div className="flex gap-2">
+          <button onClick={() => setViewMode(viewMode === "input" ? "overview" : "input")}>{viewMode === "input" ? "Vis oversigt" : "Tilbage til indtastning"}</button>
+          <button onClick={handleReset}>Nulstil alle valg</button>
         </div>
-      )}
+      </div>
 
-      <div style={{ marginTop: 40 }}>
-        <h2>Fuld oversigt</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+      {viewMode === "input" && (
+        <div className="grid grid-cols-4 gap-4">
           {[...Array(16)].map((_, i) => {
             const bane = i + 1;
             return (
-              <div key={bane} style={{ border: '1px solid #ddd', padding: 10 }}>
-                <h3>Bane {bane}</h3>
-                <ul>
+              <div key={bane} className="p-2 border rounded">
+                <h2 className="font-semibold mb-2">Bane {bane}</h2>
+                {stations.map((station) => {
+                  const key = `${bane}-${station}`;
+                  const taken = isTaken(bane, station);
+
+                  if (editing && editing.bane === bane && editing.station === station) {
+                    return (
+                      <form key={station} onSubmit={handleInputSubmit} className="mb-1 flex gap-2 items-center">
+                        <input
+                          placeholder="Navn"
+                          value={inputName}
+                          onChange={handleInputChange}
+                          autoFocus
+                          className="flex-1 border p-1"
+                        />
+                        <label className="flex items-center gap-1 text-sm">
+                          <input type="checkbox" checked={isGuest} onChange={(e) => setIsGuest(e.target.checked)} />
+                          Gæst
+                        </label>
+                        <button type="submit">Bekræft</button>
+                      </form>
+                    );
+                  }
+
+                  return (
+                    <div key={station} className="flex gap-2 mb-1">
+                      <button onClick={() => handleSelect(bane, station)} disabled={!!taken} className="flex-1 border p-1">
+                        {station} {taken ? `- ${taken}` : ""}
+                      </button>
+                      {taken && (
+                        <button onClick={() => handleRemove(bane, station)}>❌</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {viewMode === "overview" && (
+        <div className="grid grid-cols-4 gap-2">
+          {[...Array(16)].map((_, i) => {
+            const bane = i + 1;
+            return (
+              <div key={bane} className="border p-2 rounded">
+                <h3 className="font-semibold mb-1">Bane {bane}</h3>
+                <ul className="text-sm">
                   {stations.map((station) => {
                     const key = `${bane}-${station}`;
                     const navn = selections[key] || "-";
-                    return <li key={station}>{station}: {navn}</li>;
+                    return (
+                      <li key={station}>{station}: {navn}</li>
+                    );
                   })}
                 </ul>
               </div>
             );
           })}
         </div>
-      </div>
+      )}
     </div>
   );
 }
